@@ -26,8 +26,33 @@ struct pedigree { // struct to hold all the nodes and info of a pedigree
   int N;               // the number of nodes
   int S;               // the number of samples
   struct node* nodes;  // the array of nodes, 1 for each indiv in the pedigree
-  IntegerVector samples;        // 0-based integer array of idxs of the samples
 };
+
+
+
+
+
+
+//' Exponentiation function for integer arguments
+//'
+//' Solaris' compiler freaked hard on the pow function---couldn't figure
+//' out whether it should return an int or a float or something, when
+//' I used it to get very small powers of two. So I
+//' am going to write a silly, simple function (that only gets used a couple
+//' of times in an entire execution, and only with very
+//' small arguments, so the fact that it is not super efficient
+//' should not be a big problem).
+//' @param x the integer to raise 2 to.
+//' @name int_pow2
+//' @keywords internal
+int int_pow2(int x) {
+  int i;
+  int ret = 1;
+  for(i=0;i<x;i++) {
+    ret *= 2;
+  }
+  return(ret);
+}
 
 
 //' Depth first search down the pedigree to N generations.
@@ -142,7 +167,6 @@ struct pedigree *init_ped_graph(
   P->N = N;
   P->S = S;
   P->nodes = (struct node *)calloc(N, sizeof(node));
-  P->samples = clone(sample_vec);
 
   // cycle over the nodes and set default and initial values
   for(i=0;i<N;i++) {
@@ -187,16 +211,30 @@ struct pedigree *init_ped_graph(
     P->nodes[i].down[cn] = kid;
   }
 
-
-  // just checking here
-  //for(i=0;i<S;i++) {
-  //  Rcout << "i: " <<  i << " P->samples[i]: " << P->samples(i) << "\n";
-  //}
-
   return(P);
 }
 
 
+
+// Function to free memory allocated to a pedigree struct
+//
+// Gets called after the pedigree struct has been all used.
+void free_ped_graph(pedigree *P) {
+  int N = P->N;
+  int i;
+
+  for(i=0;i<N;i++) {
+    if(P->nodes[i].n_down > 0) {
+      free(P->nodes[i].down);
+    }
+  }
+
+  free(P->nodes);
+
+  free(P);
+
+  return;
+}
 
 
 //' Function to make a vector of all the ancestors of an individual out to n generations.
@@ -217,10 +255,12 @@ List ancestor_vectors_cpp(
   int n
 ) {
   int i, j, A1, A2, T;
-  int OutL = pow(2, n + 1) - 1;
+  int OutL, TopJ;
   int SV_length = sv.size();
-
   List ret;
+
+  OutL = int_pow2(n + 1) -  1;  // int_pow2 is my own function 'cuz Solaris couldn't handle an overloaded pow function
+  TopJ = int_pow2(n) - 2;
 
   for(i=0;i<SV_length;i++) {
 
@@ -235,7 +275,7 @@ List ancestor_vectors_cpp(
 
     // cycle over individuals in all but the last generation,
     // filling forward in pairs from these.
-    for(j=0;j<=pow(2, n)-2;j++) {
+    for(j=0;j<=TopJ;j++) {  // more sillyness to get it to compile on Solaris.
       T = AncIdxs(j);
       if(T == -1 || Ped->nodes[T].n_up == 0) {
         A1 = -1;
@@ -301,6 +341,9 @@ List rcpp_ancestors_and_relatives(List L, int n) {
 
   // now, test anestor vectors function
   AV = ancestor_vectors_cpp(sv, nv, Ped, n);
+
+  // free the pedigree structure.  Otherwise memory leaks.
+  free_ped_graph(Ped);
 
   return(
     List::create(

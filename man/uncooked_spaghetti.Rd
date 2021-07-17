@@ -21,7 +21,7 @@ uncooked_spaghetti(Pairs, Samples, jitter_age = 0.2, jitter_year = 0.2)
 itself, another list with the following named components:
 \itemize{
 \item \code{P5}: A tibble that is a processed version of the \code{Pairs} input.  This is what
-goes into makeing the ggplot.
+goes into making the ggplot.
 \item \code{age_grid}: A tibble giving the coordinates for placing the alternating pink and white
 horizontal background rectangles on the plot.
 \item \code{year_grid}: A tibble giving the coordinates for placing the alternating pink and white
@@ -67,7 +67,8 @@ of the dominant relationship. This is how you can distinguish full-sibs from hal
 }
 \examples{
 # get the input variables
-Samples <- species_1_slurped_results$samples
+# only take the first 50 samples to reduce time for example
+Samples <- species_1_slurped_results$samples[1:50, ]
 Pairs <- compile_related_pairs(Samples)
 result <- uncooked_spaghetti(Pairs, Samples)
 
